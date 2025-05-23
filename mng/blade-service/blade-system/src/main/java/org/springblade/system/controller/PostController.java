@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.springblade.core.cache.constant.CacheConstant.SYS_CACHE;
 
@@ -129,6 +130,24 @@ public class PostController extends BladeController {
 	public R<List<Post>> select(String tenantId, BladeUser bladeUser) {
 		List<Post> list = postService.list(Wrappers.<Post>query().lambda().eq(Post::getTenantId, Func.toStrWithEmpty(tenantId, bladeUser.getTenantId())));
 		return R.data(list);
+	}
+
+	/**
+	 * 根据岗位编号删除岗位
+	 */
+	@PostMapping("/remove-by-postCode")
+	@ApiOperationSupport(order = 9)
+	@ApiOperation(value = "根据岗位编号删除", notes = "传入postCode")
+	public R removeByPostCode(@ApiParam(value = "岗位编号", required = true) @RequestParam String postCode) {
+		CacheUtil.clear(SYS_CACHE);
+		// 先查询出符合条件的岗位
+		List<Post> posts = postService.list(Wrappers.<Post>query().lambda().eq(Post::getPostCode, postCode));
+		if (posts == null || posts.isEmpty()) {
+			return R.fail("未找到对应的岗位");
+		}
+		// 提取岗位ID并进行逻辑删除
+		List<Long> ids = posts.stream().map(Post::getId).collect(Collectors.toList());
+		return R.status(postService.deleteLogic(ids));
 	}
 
 }
